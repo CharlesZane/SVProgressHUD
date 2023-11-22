@@ -474,6 +474,8 @@ static const CGFloat SVProgressHUDVerticalLabelSpacing = 12.0f;
     BOOL imageUsed = (self.imageView.image) && !(self.imageView.hidden) && (self.imageViewSize.height > 0 && self.imageViewSize.width > 0);
     BOOL progressUsed = self.imageView.hidden;
     
+    [self stopAnimation];
+    
     // Calculate size of string
     CGRect labelRect = CGRectZero;
     CGFloat labelHeight = 0.0f;
