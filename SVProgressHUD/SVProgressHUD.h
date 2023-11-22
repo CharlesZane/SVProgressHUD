@@ -23,6 +23,11 @@ typedef NS_ENUM(NSInteger, SVProgressHUDStyle) {
     SVProgressHUDStyleCustom NS_SWIFT_NAME(custom)  // uses the fore- and background color properties
 };
 
+typedef NS_ENUM(NSInteger, SVProgressContentLayoutStyle) {
+    SVProgressContentLayoutStyleVertical NS_SWIFT_NAME(vertical), 
+    SVProgressContentLayoutStyleHorizontal NS_SWIFT_NAME(Horizontal),   
+};
+
 typedef NS_ENUM(NSUInteger, SVProgressHUDMaskType) {
     SVProgressHUDMaskTypeNone NS_SWIFT_NAME(none) = 1,      // default mask type, allow user interactions while HUD is displayed
     SVProgressHUDMaskTypeClear NS_SWIFT_NAME(clear),        // don't allow user interactions with background objects
@@ -42,7 +47,7 @@ typedef void (^SVProgressHUDDismissCompletion)(void);
 @interface SVProgressHUD : UIView
 
 #pragma mark - Customization
-
+@property (assign, nonatomic) SVProgressContentLayoutStyle contentStyle UI_APPEARANCE_SELECTOR; 
 @property (assign, nonatomic) SVProgressHUDStyle defaultStyle UI_APPEARANCE_SELECTOR;                   // default is SVProgressHUDStyleLight
 @property (assign, nonatomic) SVProgressHUDMaskType defaultMaskType UI_APPEARANCE_SELECTOR;             // default is SVProgressHUDMaskTypeNone
 @property (assign, nonatomic) SVProgressHUDAnimationType defaultAnimationType UI_APPEARANCE_SELECTOR;   // default is SVProgressHUDAnimationTypeFlat
@@ -76,7 +81,8 @@ typedef void (^SVProgressHUDDismissCompletion)(void);
 
 @property (assign, nonatomic) BOOL hapticsEnabled;      // default is NO
 @property (assign, nonatomic) BOOL motionEffectEnabled; // default is YES
-
++ (void)setHasRoteAnimation:(BOOL)hasRoteAnimation;
++ (void)setContentStyle:(SVProgressContentLayoutStyle)style;
 + (void)setDefaultStyle:(SVProgressHUDStyle)style;                      // default is SVProgressHUDStyleLight
 + (void)setDefaultMaskType:(SVProgressHUDMaskType)maskType;             // default is SVProgressHUDMaskTypeNone
 + (void)setDefaultAnimationType:(SVProgressHUDAnimationType)type;       // default is SVProgressHUDAnimationTypeFlat

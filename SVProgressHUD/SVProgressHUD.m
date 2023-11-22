@@ -26,10 +26,19 @@ NSString * const SVProgressHUDStatusUserInfoKey = @"SVProgressHUDStatusUserInfoK
 static const CGFloat SVProgressHUDParallaxDepthPoints = 10.0f;
 static const CGFloat SVProgressHUDUndefinedProgress = -1;
 static const CGFloat SVProgressHUDDefaultAnimationDuration = 0.15f;
-static const CGFloat SVProgressHUDVerticalSpacing = 12.0f;
-static const CGFloat SVProgressHUDHorizontalSpacing = 12.0f;
-static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 
+//默认（文字）
+static const CGFloat SVProgressHUDLeftRightMargin = 24.0f;
+static const CGFloat SVProgressHUDTopBottomMargin = 14.0f;
+//水平布局（带图片）
+static const CGFloat SVProgressHUDHorizontalLeftRightSpacing = 32.0f;
+static const CGFloat SVProgressHUDHorizontalTopBottomSpacing = 14.0f;
+static const CGFloat SVProgressHUDHorizontalLabelSpacing = 6.0f;
+
+//垂直布局（带图片）
+static const CGFloat SVProgressHUDVerticalLeftRightSpacing = 16.0f;
+static const CGFloat SVProgressHUDVerticalTopBottomSpacing = 28.0f;
+static const CGFloat SVProgressHUDVerticalLabelSpacing = 12.0f;
 
 @interface SVProgressHUD ()
 
@@ -43,6 +52,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 @property (nonatomic, strong) UIBlurEffect *hudViewCustomBlurEffect;
 @property (nonatomic, strong) UILabel *statusLabel;
 @property (nonatomic, strong) UIImageView *imageView;
+@property (nonatomic, assign) BOOL hasRoteAnimation;
 
 @property (nonatomic, strong) UIView *indefiniteAnimatedView;
 @property (nonatomic, strong) SVProgressAnimatedView *ringView;
@@ -85,6 +95,14 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 
 + (void)setDefaultStyle:(SVProgressHUDStyle)style {
     [self sharedView].defaultStyle = style;
+}
+
++ (void)setContentStyle:(SVProgressContentLayoutStyle)style {
+    [self sharedView].contentStyle = style;
+}
+
++ (void)setHasRoteAnimation:(BOOL)hasRoteAnimation {
+    [self sharedView].hasRoteAnimation = hasRoteAnimation;
 }
 
 + (void)setDefaultMaskType:(SVProgressHUDMaskType)maskType {
@@ -407,6 +425,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
         
         // Set default values
         _defaultMaskType = SVProgressHUDMaskTypeNone;
+        _contentStyle = SVProgressContentLayoutStyleVertical;
         _defaultStyle = SVProgressHUDStyleLight;
         _defaultAnimationType = SVProgressHUDAnimationTypeFlat;
         _minimumSize = CGSizeZero;
@@ -461,7 +480,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     CGFloat labelWidth = 0.0f;
     
     if(self.statusLabel.text) {
-        CGSize constraintSize = CGSizeMake(200.0f, 300.0f);
+        CGSize constraintSize = CGSizeMake(UIScreen.mainScreen.bounds.size.width * 0.6, 300.0f);
         labelRect = [self.statusLabel.text boundingRectWithSize:constraintSize
                                                         options:(NSStringDrawingOptions)(NSStringDrawingUsesFontLeading | NSStringDrawingTruncatesLastVisibleLine | NSStringDrawingUsesLineFragmentOrigin)
                                                      attributes:@{NSFontAttributeName: self.statusLabel.font}
@@ -484,15 +503,32 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
         contentHeight = CGRectGetHeight(imageUsed ? self.imageView.frame : self.indefiniteAnimatedView.frame);
     }
     
+    CGFloat leftRightMargin = contentWidth > 0 ? SVProgressHUDVerticalLeftRightSpacing :  SVProgressHUDLeftRightMargin;
+    CGFloat topBottomMargin = contentWidth > 0 ? SVProgressHUDVerticalTopBottomSpacing :  SVProgressHUDTopBottomMargin;
+    
+    //垂直布局
     // |-spacing-content-spacing-|
-    hudWidth = SVProgressHUDHorizontalSpacing + MAX(labelWidth, contentWidth) + SVProgressHUDHorizontalSpacing;
+    hudWidth = leftRightMargin + MAX(labelWidth, contentWidth) + leftRightMargin;
     
     // |-spacing-content-(labelSpacing-label-)spacing-|
-    hudHeight = SVProgressHUDVerticalSpacing + labelHeight + contentHeight + SVProgressHUDVerticalSpacing;
+    hudHeight = topBottomMargin + labelHeight + contentHeight + topBottomMargin;
     if(self.statusLabel.text && (imageUsed || progressUsed)){
         // Add spacing if both content and label are used
-        hudHeight += SVProgressHUDLabelSpacing;
+        hudHeight += SVProgressHUDVerticalLabelSpacing;
     }
+    
+    //如果垂直布局，高不宽长，则对齐
+    if (hudHeight > hudWidth) {
+        CGFloat hudMaxWidh = UIScreen.mainScreen.bounds.size.width * 0.6;
+        hudWidth = MIN(hudHeight, hudMaxWidh);
+    }
+    
+    //水平布局
+    if (imageUsed && self.statusLabel.text && _contentStyle == SVProgressContentLayoutStyleHorizontal) {
+        hudWidth = SVProgressHUDHorizontalLeftRightSpacing * 2 + contentWidth + SVProgressHUDHorizontalLabelSpacing + labelWidth ;
+        hudHeight = SVProgressHUDHorizontalTopBottomSpacing * 2 + MAX(labelHeight, contentHeight);
+    }
+    
     
     // Update values on subviews
     self.hudView.bounds = CGRectMake(0.0f, 0.0f, MAX(self.minimumSize.width, hudWidth), MAX(self.minimumSize.height, hudHeight));
@@ -501,28 +537,42 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     
-    // Spinner and image view
-    CGFloat centerY;
-    if(self.statusLabel.text) {
-        CGFloat yOffset = MAX(SVProgressHUDVerticalSpacing, (self.minimumSize.height - contentHeight - SVProgressHUDLabelSpacing - labelHeight) / 2.0f);
-        centerY = yOffset + contentHeight / 2.0f;
-    } else {
-        centerY = CGRectGetMidY(self.hudView.bounds);
-    }
-    self.indefiniteAnimatedView.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
-    if(self.progress != SVProgressHUDUndefinedProgress) {
-        self.backgroundRingView.center = self.ringView.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
-    }
-    self.imageView.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
+    if (imageUsed && self.statusLabel.text && _contentStyle == SVProgressContentLayoutStyleHorizontal) {
+        //水平布局
+        CGRect imageRect = self.imageView.frame;
+        imageRect.origin =  CGPointMake(SVProgressHUDHorizontalLeftRightSpacing,(hudHeight - contentHeight)/2);
+        self.imageView.frame = imageRect;
+        self.statusLabel.frame = CGRectMake(self.imageView.frame.size.width + self.imageView.frame.origin.x + SVProgressHUDHorizontalLabelSpacing, (hudHeight - labelHeight)/2, labelWidth, labelHeight);
 
-    // Label
-    if(imageUsed || progressUsed) {
-        centerY = CGRectGetMaxY(imageUsed ? self.imageView.frame : self.indefiniteAnimatedView.frame) + SVProgressHUDLabelSpacing + labelHeight / 2.0f;
-    } else {
-        centerY = CGRectGetMidY(self.hudView.bounds);
+    }else {
+        //垂直布局
+        // Spinner and image view
+        CGFloat centerY;
+        if(self.statusLabel.text) {
+            CGFloat yOffset = MAX(topBottomMargin, (self.minimumSize.height - contentHeight - SVProgressHUDVerticalLabelSpacing - labelHeight) / 2.0f);
+            centerY = yOffset + contentHeight / 2.0f;
+        } else {
+            centerY = CGRectGetMidY(self.hudView.bounds);
+        }
+        self.indefiniteAnimatedView.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
+        if(self.progress != SVProgressHUDUndefinedProgress) {
+            self.backgroundRingView.center = self.ringView.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
+        }
+        self.imageView.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
+        
+        // Label
+        if(imageUsed || progressUsed) {
+            centerY = CGRectGetMaxY(imageUsed ? self.imageView.frame : self.indefiniteAnimatedView.frame) + SVProgressHUDVerticalLabelSpacing + labelHeight / 2.0f;
+        } else {
+            centerY = CGRectGetMidY(self.hudView.bounds);
+        }
+        self.statusLabel.frame = labelRect;
+        self.statusLabel.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
     }
-    self.statusLabel.frame = labelRect;
-    self.statusLabel.center = CGPointMake(CGRectGetMidX(self.hudView.bounds), centerY);
+    
+    if (_hasRoteAnimation == true) {
+        [self startAnimation];
+    }
     
     [CATransaction commit];
 }
@@ -604,6 +654,22 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     if(timer) {
         _fadeOutTimer = timer;
     }
+}
+
+- (void)startAnimation{
+       CABasicAnimation *loadingAnimation = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
+        loadingAnimation.fromValue = [NSNumber numberWithFloat:0.f];
+        loadingAnimation.toValue = [NSNumber numberWithFloat: M_PI *2];
+        loadingAnimation.duration =   0.6;
+        loadingAnimation.autoreverses = NO;
+        loadingAnimation.fillMode = kCAFillModeForwards;
+        loadingAnimation.repeatCount = MAXFLOAT;
+        loadingAnimation.removedOnCompletion = NO;
+        [self.imageView.layer addAnimation:loadingAnimation forKey:@"sv_progess_animation_key"];
+}
+
+- (void)stopAnimation {
+    [self.imageView.layer removeAllAnimations];
 }
 
 
@@ -945,6 +1011,9 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
                 
                 // Dismiss automatically if a duration was passed as userInfo. We start a timer
                 // which then will call dismiss after the predefined duration
+                if (self.hasRoteAnimation == true) {
+                    return;
+                }
                 if(duration){
                     self.fadeOutTimer = [NSTimer timerWithTimeInterval:[(NSNumber *)duration doubleValue] target:self selector:@selector(dismiss) userInfo:nil repeats:NO];
                     [[NSRunLoop mainRunLoop] addTimer:self.fadeOutTimer forMode:NSRunLoopCommonModes];
@@ -974,7 +1043,9 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
         // Update accessibility
         UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, nil);
         UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, self.statusLabel.text);
-        
+        if (self.hasRoteAnimation == true) {
+            return;
+        }
         // Dismiss automatically if a duration was passed as userInfo. We start a timer
         // which then will call dismiss after the predefined duration
         if(duration){
@@ -1015,6 +1086,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
                 // and the change of these values has not been cancelled in between e.g. due to a new show
                 if(self.backgroundView.alpha == 0.0f){
                     // Clean up view hierarchy (overlays)
+                    [strongSelf.imageView stopAnimating];
                     [strongSelf.controlView removeFromSuperview];
                     [strongSelf.backgroundView removeFromSuperview];
                     [strongSelf.hudView removeFromSuperview];
@@ -1451,6 +1523,14 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 
 - (void)setDefaultStyle:(SVProgressHUDStyle)style {
     if (!_isInitializing) _defaultStyle = style;
+}
+
+- (void)setContentStyle:(SVProgressContentLayoutStyle)contentStyle{
+    if (!_isInitializing) _contentStyle = contentStyle;
+}
+
+- (void)setHasRoteAnimation:(BOOL)hasRoteAnimation{
+    if (!_isInitializing) _hasRoteAnimation = hasRoteAnimation;
 }
 
 - (void)setDefaultMaskType:(SVProgressHUDMaskType)maskType {
